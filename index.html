@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#123b48">
+<title>あるいて世界旅行</title>
+<style>
+:root{color-scheme:dark;--bg:#0c2028;--panel:#163640;--muted:#b7cbd0;--accent:#f3c56b;--line:#31515a}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#102f39,#091920 70%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",Meiryo,sans-serif;min-height:100vh}
+header{padding:26px 20px 18px;text-align:center}h1{font-size:25px;margin:0 0 7px;letter-spacing:.04em}header p{margin:0;color:var(--muted);font-size:13px}
+main{max-width:620px;margin:auto;padding:0 15px 36px}.hero{height:205px;border-radius:20px;overflow:hidden;position:relative;background:linear-gradient(0deg,rgba(0,0,0,.65),transparent 65%),url('https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?auto=format&fit=crop&w=1200&q=85') center/cover}
+.hero .caption{position:absolute;bottom:17px;left:18px}.eyebrow{font-size:11px;color:var(--accent);letter-spacing:.12em}.hero h2{margin:5px 0 0;font-size:23px}
+.panel{background:rgba(22,54,64,.92);border:1px solid var(--line);border-radius:18px;padding:17px;margin-top:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.muted{color:var(--muted);font-size:13px}.big{font-size:31px;font-weight:750;letter-spacing:-.03em}.unit{font-size:13px;color:var(--muted);margin-left:4px}
+select,input,button{font:inherit;border-radius:12px}select,input{background:#0d2730;color:white;border:1px solid #45636b;padding:13px;width:100%;min-width:0}
+button{border:0;background:var(--accent);color:#172a2d;font-weight:750;padding:13px 17px;cursor:pointer}button:active{transform:scale(.98)}button.secondary{background:#294b55;color:white;border:1px solid #52717a}
+.formrow{display:flex;gap:9px;margin-top:10px}.formrow input{flex:1}.formrow button{white-space:nowrap}
+.track{height:11px;background:#0a2028;border-radius:99px;overflow:hidden;margin:12px 0 7px}.fill{height:100%;width:0;background:linear-gradient(90deg,#5ac4b5,#f3c56b);border-radius:99px;transition:width .25s}
+.destination{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}.destination strong{display:block;font-size:17px}.destination small{display:block;color:var(--muted);margin-top:4px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{background:#102b34;border-radius:13px;padding:12px}.stat .big{font-size:23px}
+.actions{display:flex;gap:8px;margin-top:12px}.actions button{flex:1}
+.notice{font-size:12px;line-height:1.6;color:var(--muted);margin:12px 2px 0}
+footer{text-align:center;color:#8fa9b0;font-size:11px;padding:20px}
+</style>
+</head>
+<body>
+<header><h1>あるいて世界旅行</h1><p>毎日の歩みで、世界の景色に近づこう。</p></header>
+<main>
+<section class="hero" id="hero"><div class="caption"><div class="eyebrow">YOUR WALKING JOURNEY</div><h2 id="heroTitle">次の旅先へ出発</h2></div></section>
+<section class="panel">
+ <div class="row"><div><div class="muted">これまでに歩いた距離</div><div><span class="big" id="total">0.0</span><span class="unit">km</span></div></div><div style="text-align:right"><div class="muted">今日の記録</div><div><span class="big" id="today">0.0</span><span class="unit">km</span></div></div></div>
+ <div class="formrow"><input id="km" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="歩いた距離（km）"><button id="add">記録する</button></div>
+ <p class="notice">歩数計との自動連携はまだ準備中です。ここでは歩いた距離を入力して記録できます。</p>
+</section>
+<section class="panel">
+ <div class="row"><strong>旅先を選ぶ</strong><span class="muted">目的地</span></div>
+ <div style="margin-top:10px"><select id="place">
+ <option value="kyoto">京都・伏見稲荷</option><option value="paris">フランス・パリ</option><option value="santorini">ギリシャ・サントリーニ島</option><option value="fuji">日本・富士山</option>
+ </select></div>
+ <div class="destination" style="margin-top:15px"><div><strong id="placeName">京都・伏見稲荷</strong><small id="placeDesc">千本鳥居を目指して歩こう</small></div><div style="text-align:right"><span class="big" id="percent">0%</span><div class="muted">達成率</div></div></div>
+ <div class="track"><div class="fill" id="bar"></div></div>
+ <div class="row"><span class="muted">スタートからの距離</span><strong><span id="progress">0.0</span> / <span id="goal">5.0</span> km</strong></div>
+ <div class="actions"><button class="secondary" id="reset">この旅先の記録をリセット</button></div>
+</section>
+<section class="panel">
+ <div class="stats"><div class="stat"><div class="muted">旅した距離</div><div><span class="big" id="allDistance">0.0</span><span class="unit">km</span></div></div><div class="stat"><div class="muted">到着した旅先</div><div><span class="big" id="arrivals">0</span><span class="unit">か所</span></div></div></div>
+ <p class="notice" id="message">一歩ずつ、世界の旅を始めましょう。</p>
+</section>
+<footer>あるいて世界旅行 · 記録はこの端末のブラウザに保存されます</footer>
+</main>
+<script>
+const places={
+ kyoto:{name:"京都・伏見稲荷",desc:"千本鳥居を目指して歩こう",goal:5,image:"https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?auto=format&fit=crop&w=1200&q=85"},
+ paris:{name:"フランス・パリ",desc:"セーヌ川とエッフェル塔を目指そう",goal:10,image:"https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=85"},
+ santorini:{name:"ギリシャ・サントリーニ島",desc:"青い海と白い街並みを目指そう",goal:15,image:"https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1200&q=85"},
+ fuji:{name:"日本・富士山",desc:"湖越しに望む富士山を目指そう",goal:8,image:"https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=85"}
+};
+const $=id=>document.getElementById(id);
+let state;
+try{state=JSON.parse(localStorage.getItem("aruiteWorldTravel")||"{}")}catch(e){state={}}
+state.totals=state.totals||{};state.today=state.today||"";
+state.todayKm=state.todayKm||0;state.selected=state.selected||"kyoto";
+function save(){localStorage.setItem("aruiteWorldTravel",JSON.stringify(state))}
+function render(){
+ const p=places[state.selected],distance=Number(state.totals[state.selected]||0),pct=Math.min(100,Math.round(distance/p.goal*100));
+ $("total").textContent=Object.values(state.totals).reduce((a,b)=>a+Number(b||0),0).toFixed(1);
+ $("today").textContent=Number(state.todayKm).toFixed(1);$("allDistance").textContent=$("total").textContent;
+ $("placeName").textContent=p.name;$("placeDesc").textContent=p.desc;$("goal").textContent=p.goal.toFixed(1);
+ $("progress").textContent=distance.toFixed(1);$("percent").textContent=pct+"%";$("bar").style.width=pct+"%";
+ $("heroTitle").textContent=p.name;$("hero").style.backgroundImage=`linear-gradient(0deg,rgba(0,0,0,.65),transparent 65%),url('${p.image}')`;
+ $("arrivals").textContent=Object.keys(state.totals).filter(k=>Number(state.totals[k]||0)>=places[k].goal).length;
+ $("message").textContent=pct>=100?"到着おめでとうございます！次の旅先にも出発できます。":`あと ${(p.goal-distance).toFixed(1)} km で ${p.name} に到着です。`;
+ $("place").value=state.selected;
+}
+$("place").addEventListener("change",e=>{state.selected=e.target.value;save();render()});
+$("add").addEventListener("click",()=>{
+ const n=Number($("km").value);
+ if(!Number.isFinite(n)||n<=0||n>100){$("message").textContent="0.1〜100 kmの範囲で入力してください。";return}
+ state.totals[state.selected]=Math.round((Number(state.totals[state.selected]||0)+n)*10)/10;
+ const d=new Date(),key=[d.getFullYear(),d.getMonth()+1,d.getDate()].join("-");
+ if(state.today!==key){state.today=key;state.todayKm=0}
+ state.todayKm=Math.round((Number(state.todayKm)+n)*10)/10;
+ save();$("km").value="";render();
+});
+$("reset").addEventListener("click",()=>{if(confirm("この旅先の記録をリセットしますか？")){delete state.totals[state.selected];save();render()}});
+const now=new Date(),todayKey=[now.getFullYear(),now.getMonth()+1,now.getDate()].join("-");
+if(state.today!==todayKey){state.today=todayKey;state.todayKm=0;save()}
+render();
+</script>
+</body></html>
