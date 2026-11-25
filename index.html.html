@@ -1,0 +1,2621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>京の息吹 — 京都バーチャル没入旅行体験</title>
+    <style>
+        /* =====================================================================
+           1. モバイルファースト・デザイントークン＆基本リセット
+           ===================================================================== */
+        :root {
+            --bg-sumi: #090c12;
+            --bg-glass: rgba(13, 17, 25, 0.84);
+            --bg-sheet: #121722;
+            --text-washi: #f7f3ea;
+            --text-muted: #b6b0a4;
+            --accent-shuiro: #c93a2b;
+            --accent-kincha: #d6b23c;
+            --accent-matcha: #4f775b;
+            --border-subtle: rgba(255, 255, 255, 0.14);
+            --border-gold: rgba(214, 178, 60, 0.48);
+            --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "MS PMincho", Georgia, serif;
+            --font-sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none;
+            background-color: var(--bg-sumi);
+            color: var(--text-washi);
+            font-family: var(--font-sans);
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        input, textarea, select {
+            -webkit-user-select: text;
+            user-select: text;
+            font-family: var(--font-sans);
+        }
+
+        button {
+            font-family: inherit;
+            color: inherit;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            touch-action: manipulation;
+            min-height: 44px;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            touch-action: manipulation;
+        }
+
+        .font-serif {
+            font-family: var(--font-serif);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* =====================================================================
+           2. 写真映像ステージ＆タッチ操作（スワイプ・ピンチ・ホットスポット）
+           ===================================================================== */
+        #viewport-stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
+            background: #07090e;
+        }
+
+        #photo-layer {
+            position: absolute;
+            inset: -14%;
+            width: 128%;
+            height: 128%;
+            will-change: transform;
+            transform-origin: 50% 50%;
+        }
+
+        #scene-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: filter 0.3s ease, opacity 0.25s ease;
+        }
+
+        #photo-fallback-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 伏見稲荷：街並みを排したコンパクト＆引き締めフレーム */
+        #fushimi-compact-frame {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 8;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            box-shadow:
+                inset 0 0 0 1px rgba(214, 178, 60, 0.28),
+                inset 0 0 72px rgba(4, 6, 10, 0.84);
+        }
+
+        #fushimi-compact-frame.active {
+            opacity: 1;
+        }
+
+        #atmosphere-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 9;
+            transition: background 0.35s ease;
+        }
+
+        #weather-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            display: block;
+        }
+
+        #hotspot-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 14;
+        }
+
+        .hotspot-pin {
+            position: absolute;
+            pointer-events: auto;
+            transform: translate(-50%, -50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 44px;
+            padding: 0 6px;
+        }
+
+        .hotspot-ring-wrap {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .hotspot-pulse {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 9999px;
+            background: rgba(214, 178, 60, 0.55);
+            animation: pulse-ring 2.2s ease-out infinite;
+        }
+
+        .hotspot-dot {
+            position: relative;
+            width: 13px;
+            height: 13px;
+            border-radius: 9999px;
+            background: var(--text-washi);
+            border: 3px solid var(--accent-shuiro);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+        }
+
+        .hotspot-pill {
+            padding: 5px 10px;
+            border-radius: 9999px;
+            background: rgba(11, 15, 22, 0.88);
+            border: 1px solid var(--border-gold);
+            font-family: var(--font-serif);
+            font-size: 11px;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.85); opacity: 0.9; }
+            100% { transform: scale(2.15); opacity: 0; }
+        }
+
+        /* =====================================================================
+           3. スマホ縦長画面向け HUD レイアウト（親指操作・余白確保）
+           ===================================================================== */
+        #hud-shell {
+            position: fixed;
+            inset: 0;
+            z-index: 22;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: calc(8px + var(--safe-top)) 10px calc(8px + var(--safe-bottom));
+            gap: 6px;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+        }
+
+        .top-cluster {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .title-box {
+            padding: 7px 11px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+            color: var(--accent-kincha);
+            font-family: var(--font-serif);
+            letter-spacing: 0.04em;
+        }
+
+        .spot-title {
+            margin: 1px 0 0;
+            font-family: var(--font-serif);
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .spot-sub {
+            margin: 2px 0 0;
+            font-size: 10.5px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .plan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 11px;
+            height: 44px;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, rgba(214, 178, 60, 0.24), rgba(201, 58, 43, 0.24));
+            border: 1px solid var(--border-gold);
+            font-family: var(--font-serif);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .plan-btn.is-premium {
+            background: linear-gradient(135deg, rgba(214, 178, 60, 0.38), rgba(79, 119, 91, 0.34));
+            color: #fff6cf;
+        }
+
+        .plan-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 9999px;
+            background: #57d682;
+            flex-shrink: 0;
+        }
+
+        .plan-dot.gold {
+            background: var(--accent-kincha);
+            box-shadow: 0 0 8px var(--accent-kincha);
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 5px;
+        }
+
+        .action-btn {
+            min-height: 44px;
+            padding: 4px;
+            border-radius: 11px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+            font-size: 10px;
+            line-height: 1.15;
+        }
+
+        .action-btn.active-state {
+            border-color: var(--accent-kincha);
+            background: rgba(214, 178, 60, 0.22);
+            color: var(--accent-kincha);
+        }
+
+        .action-icon {
+            font-size: 14px;
+        }
+
+        /* 中央：視点切替＆レンズ操作 */
+        .center-cluster {
+            margin: auto 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .angle-bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 9999px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-gold);
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .angle-tab {
+            min-height: 40px;
+            padding: 0 11px;
+            border-radius: 9999px;
+            font-family: var(--font-serif);
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .angle-tab.active {
+            background: var(--accent-shuiro);
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .lens-strip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            background: rgba(10, 14, 20, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        .lens-btn {
+            min-height: 36px;
+            padding: 0 9px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.11);
+            color: var(--text-washi);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* 下部：刻限・風情／5大名所／スポンサー枠／法務・オーナー */
+        .bottom-cluster {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .env-box {
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .env-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .env-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .env-label {
+            font-family: var(--font-serif);
+            font-size: 10.5px;
+            color: var(--accent-kincha);
+            padding-right: 3px;
+            flex-shrink: 0;
+        }
+
+        .env-chip {
+            min-height: 38px;
+            padding: 0 9px;
+            border-radius: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.04);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .env-chip.active-time {
+            background: var(--accent-kincha);
+            color: #090c12;
+            font-weight: 700;
+        }
+
+        .env-chip.active-weather {
+            background: var(--accent-shuiro);
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .spot-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 4px;
+        }
+
+        .spot-card {
+            min-height: 48px;
+            padding: 5px 4px;
+            border-radius: 10px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 1px;
+        }
+
+        .spot-card.active {
+            border-color: var(--accent-kincha);
+            background: rgba(28, 35, 48, 0.96);
+            box-shadow: 0 0 0 1px rgba(214, 178, 60, 0.45);
+        }
+
+        .spot-card-name {
+            font-family: var(--font-serif);
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1.15;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .spot-card-tag {
+            font-size: 8.5px;
+            color: #8be2a6;
+            line-height: 1.1;
+        }
+
+        .sponsor-bar {
+            min-height: 44px;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 10.5px;
+        }
+
+        .pr-tag {
+            padding: 2px 5px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.14);
+            color: var(--text-muted);
+            font-size: 9px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .sponsor-copy {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sponsor-hide-btn {
+            min-height: 36px;
+            padding: 0 6px;
+            font-family: var(--font-serif);
+            font-size: 10px;
+            color: var(--accent-kincha);
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .footer-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 0 2px;
+            font-size: 9.5px;
+            color: var(--text-muted);
+        }
+
+        .footer-meta button {
+            min-height: 32px;
+            padding: 0 4px;
+            font-size: 9.5px;
+            color: var(--text-muted);
+            text-decoration: underline;
+        }
+
+        #restore-hud-btn {
+            position: fixed;
+            top: calc(12px + var(--safe-top));
+            right: 12px;
+            z-index: 36;
+            min-height: 44px;
+            padding: 0 14px;
+            border-radius: 9999px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-gold);
+            font-family: var(--font-serif);
+            font-size: 12px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+        }
+
+        /* =====================================================================
+           4. モーダル・ミキサー・御朱印帳・トースト
+           ===================================================================== */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background: rgba(4, 6, 10, 0.8);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 12px 12px calc(12px + var(--safe-bottom));
+        }
+
+        @media (min-width: 640px) {
+            .modal-backdrop {
+                align-items: center;
+            }
+        }
+
+        .modal-card {
+            width: 100%;
+            max-width: 540px;
+            max-height: 86vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: var(--bg-sheet);
+            border: 1px solid var(--border-gold);
+            border-radius: 20px;
+            padding: 18px 18px 22px;
+            position: relative;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.78);
+        }
+
+        .close-x {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            min-height: 40px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.12);
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-red {
+            min-height: 44px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-shuiro), #9c271b);
+            color: #fff;
+            font-family: var(--font-serif);
+            font-weight: 700;
+            font-size: 12.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-gold {
+            min-height: 44px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #e2bf49, #b58d20);
+            color: #090c12;
+            font-family: var(--font-serif);
+            font-weight: 700;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-ghost {
+            min-height: 44px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .pr-box {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 12px;
+            background: rgba(214, 178, 60, 0.1);
+            border: 1px solid rgba(214, 178, 60, 0.34);
+        }
+
+        .pr-links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .pr-link-btn {
+            min-height: 44px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            font-family: var(--font-serif);
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #mixer-panel {
+            position: fixed;
+            top: calc(114px + var(--safe-top));
+            right: 10px;
+            z-index: 40;
+            width: min(300px, calc(100vw - 20px));
+            padding: 14px;
+        }
+
+        .slider-row {
+            margin-bottom: 10px;
+        }
+
+        .slider-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 28px;
+            accent-color: var(--accent-kincha);
+        }
+
+        .goshuin-sheet {
+            background: #f5efe0;
+            color: #161920;
+            border: 2.5px solid #b48c27;
+        }
+
+        .goshuin-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        @media (min-width: 520px) {
+            .goshuin-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .goshuin-item {
+            background: #fffdf8;
+            border: 1px solid rgba(180, 140, 39, 0.45);
+            border-radius: 12px;
+            padding: 11px 12px;
+        }
+
+        .stamp-seal {
+            border: 2px solid var(--accent-shuiro);
+            color: var(--accent-shuiro);
+            padding: 3px 6px;
+            border-radius: 6px;
+            font-family: var(--font-serif);
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1.15;
+            text-align: center;
+            transform: rotate(-4deg);
+            flex-shrink: 0;
+        }
+
+        .stamp-seal.gold {
+            border-color: #966c06;
+            color: #7d5800;
+            background: rgba(214, 178, 60, 0.18);
+        }
+
+        .form-field {
+            margin-bottom: 11px;
+        }
+
+        .form-field label {
+            display: block;
+            font-size: 11px;
+            color: var(--accent-kincha);
+            font-family: var(--font-serif);
+            margin-bottom: 4px;
+        }
+
+        .form-field input {
+            width: 100%;
+            min-height: 42px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: var(--text-washi);
+            font-size: 12px;
+        }
+
+        #toast-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            z-index: 70;
+            background: rgba(12, 16, 23, 0.94);
+            border: 1px solid var(--border-gold);
+            color: var(--text-washi);
+            padding: 9px 16px;
+            border-radius: 9999px;
+            font-family: var(--font-serif);
+            font-size: 12px;
+            text-align: center;
+            max-width: 88vw;
+            pointer-events: none;
+            opacity: 0;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        #toast-banner.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    </style>
+</head>
+<body>
+    <!-- 写真映像ステージ -->
+    <div id="viewport-stage" role="application" aria-label="京の息吹 京都バーチャル没入旅行体験">
+        <div id="photo-layer">
+            <canvas id="photo-fallback-canvas"></canvas>
+            <img id="scene-photo" alt="京都の風景写真" decoding="async" loading="eager">
+        </div>
+        <div id="fushimi-compact-frame" aria-hidden="true"></div>
+        <div id="atmosphere-overlay" aria-hidden="true"></div>
+        <canvas id="weather-canvas" aria-hidden="true"></canvas>
+        <div id="hotspot-layer" aria-live="polite"></div>
+    </div>
+
+    <!-- 没入モード復帰ボタン -->
+    <button id="restore-hud-btn" class="hidden" type="button">👁 案内を表示</button>
+
+    <!-- スマホ向け HUD -->
+    <div id="hud-shell">
+        <div class="top-cluster">
+            <div class="top-row">
+                <div class="glass-card title-box interactive">
+                    <div class="eyebrow">
+                        <span id="hud-area">伏見区・稲荷山</span>
+                        <span>・</span>
+                        <span id="hud-angle">① 千本鳥居の回廊</span>
+                    </div>
+                    <h1 id="hud-title" class="spot-title">伏見稲荷大社</h1>
+                    <p id="hud-sub" class="spot-sub">街並みを排した鳥居参道。朱の柱が奥へと連なる静謐な神域。</p>
+                </div>
+
+                <button id="plan-btn" class="plan-btn interactive" type="button">
+                    <span id="plan-dot" class="plan-dot"></span>
+                    <span id="plan-label">無料 / 500円</span>
+                </button>
+            </div>
+
+            <div class="action-grid">
+                <button id="bell-btn" class="glass-card action-btn interactive" type="button">
+                    <span class="action-icon">🔔</span>
+                    <span class="font-serif">鐘・余韻</span>
+                </button>
+                <button id="audio-btn" class="glass-card action-btn interactive" type="button">
+                    <span id="audio-icon" class="action-icon">🔇</span>
+                    <span id="audio-label">音OFF</span>
+                </button>
+                <button id="mixer-btn" class="glass-card action-btn interactive" type="button">
+                    <span class="action-icon">🎚️</span>
+                    <span class="font-serif">音調合<span id="mixer-lock">🔒</span></span>
+                </button>
+                <button id="goshuin-btn" class="glass-card action-btn interactive" type="button">
+                    <span class="action-icon font-serif" style="color:var(--accent-shuiro);font-weight:700;">印</span>
+                    <span class="font-serif">御朱印 <strong id="goshuin-count">0/5</strong></span>
+                </button>
+                <button id="hide-hud-btn" class="glass-card action-btn interactive" type="button">
+                    <span class="action-icon">🙈</span>
+                    <span>景色のみ</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 中央：視点切替＆レンズ操作 -->
+        <div class="center-cluster">
+            <div id="angle-bar" class="angle-bar interactive" role="tablist" aria-label="視点切替"></div>
+            <div class="lens-strip interactive">
+                <span id="lens-readout">視線 0° · 1.2x</span>
+                <button id="zoom-in-btn" class="lens-btn" type="button">＋寄る</button>
+                <button id="zoom-out-btn" class="lens-btn" type="button">－引く</button>
+                <button id="reset-view-btn" class="lens-btn" type="button">正面</button>
+            </div>
+        </div>
+
+        <!-- 下部：刻限＆風情／5大名所／スポンサー枠／法務・オーナー -->
+        <div class="bottom-cluster">
+            <div class="glass-card env-box interactive">
+                <div class="env-row">
+                    <span class="env-label">刻限</span>
+                    <button class="env-chip time-btn" data-time="day" type="button">昼下がり</button>
+                    <button class="env-chip time-btn" data-time="twilight" type="button">黄昏時</button>
+                    <button class="env-chip time-btn" data-time="night" type="button">宵闇</button>
+                    <button class="env-chip time-btn" data-time="morning" type="button">朝霧 <span class="lock-icon">🔒</span></button>
+                </div>
+                <div class="env-row">
+                    <span class="env-label">風情</span>
+                    <button class="env-chip weather-btn" data-weather="sakura" type="button">🌸 桜吹雪</button>
+                    <button class="env-chip weather-btn" data-weather="momiji" type="button">🍁 紅葉散る</button>
+                    <button class="env-chip weather-btn" data-weather="rain" type="button">☔ 京の雨</button>
+                    <button class="env-chip weather-btn" data-weather="snow" type="button">❄️ 雪化粧 <span class="lock-icon">🔒</span></button>
+                    <button class="env-chip weather-btn" data-weather="firefly" type="button">✨ 蛍の夕べ <span class="lock-icon">🔒</span></button>
+                </div>
+            </div>
+
+            <div class="spot-grid interactive" role="tablist" aria-label="京都5大名所">
+                <button class="spot-card" data-spot="fushimi" type="button">
+                    <span class="spot-card-name">伏見稲荷</span>
+                    <span class="spot-card-tag">無料·鳥居</span>
+                </button>
+                <button class="spot-card" data-spot="arashiyama" type="button">
+                    <span class="spot-card-name">嵐山·竹林</span>
+                    <span class="spot-card-tag">無料·嵯峨</span>
+                </button>
+                <button class="spot-card" data-spot="kiyomizu" type="button">
+                    <span class="spot-card-name">清水寺</span>
+                    <span class="spot-card-tag">無料·東山</span>
+                </button>
+                <button class="spot-card" data-spot="kinkakuji" type="button">
+                    <span class="spot-card-name">金閣寺</span>
+                    <span class="spot-card-tag">無料·鏡湖</span>
+                </button>
+                <button class="spot-card" data-spot="gion" type="button">
+                    <span class="spot-card-name">祇園·白川</span>
+                    <span class="spot-card-tag">無料·花街</span>
+                </button>
+            </div>
+
+            <!-- 無料版スポンサー枠（月額500円プランで完全非表示） -->
+            <div id="sponsor-bar" class="glass-card sponsor-bar interactive">
+                <span class="pr-tag">PR</span>
+                <a id="sponsor-link" class="sponsor-copy" href="https://travel.rakuten.co.jp/yado/kyoto/" target="_blank" rel="sponsored noopener noreferrer">
+                    静かな朝や夕暮れの京都を現地でも味わいませんか？ 宿・体験を見る →
+                </a>
+                <button id="sponsor-hide-btn" class="sponsor-hide-btn" type="button">500円で消す</button>
+            </div>
+
+            <div class="footer-meta interactive">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button type="button" data-legal="tokushoho">特商法表記</button>
+                    <button type="button" data-legal="privacy">プライバシー</button>
+                    <button type="button" data-legal="ad">広告・PR表記</button>
+                </div>
+                <button id="owner-btn" type="button">⚙ オーナー設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 環境音ミキサー＆おやすみタイマー（月額500円特典） -->
+    <div id="mixer-panel" class="glass-card hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span class="font-serif" style="font-size:12px;color:var(--accent-kincha);font-weight:700;">🎚️ 環境音ミキサー＆タイマー</span>
+            <button id="mixer-close-btn" type="button" style="min-height:36px;padding:0 8px;">✕</button>
+        </div>
+        <div class="slider-row">
+            <div class="slider-head"><span>全体音量</span><span id="lbl-master">75%</span></div>
+            <input id="sl-master" type="range" min="0" max="100" value="75">
+        </div>
+        <div class="slider-row">
+            <div class="slider-head"><span>竹林・木々の風</span><span id="lbl-wind">60%</span></div>
+            <input id="sl-wind" type="range" min="0" max="100" value="60">
+        </div>
+        <div class="slider-row">
+            <div class="slider-head"><span>白川・水辺のせせらぎ</span><span id="lbl-stream">55%</span></div>
+            <input id="sl-stream" type="range" min="0" max="100" value="55">
+        </div>
+        <div class="slider-row">
+            <div class="slider-head"><span>京の雨音</span><span id="lbl-rain">50%</span></div>
+            <input id="sl-rain" type="range" min="0" max="100" value="50">
+        </div>
+        <div style="padding-top:8px;border-top:1px solid rgba(255,255,255,0.12);">
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px;">
+                <span>🌙 おやすみタイマー</span>
+                <span id="sleep-status" style="color:var(--accent-kincha);">未設定</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;">
+                <button class="lens-btn sleep-btn" data-min="0" type="button">解除</button>
+                <button class="lens-btn sleep-btn" data-min="15" type="button">15分</button>
+                <button class="lens-btn sleep-btn" data-min="30" type="button">30分</button>
+                <button class="lens-btn sleep-btn" data-min="60" type="button">60分</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 案内ピン詳細＋文脈連動「旅の案内（PR）」モーダル -->
+    <div id="pin-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <button id="pin-close-btn" class="close-x" type="button">✕</button>
+            <div id="pin-cat" style="font-size:10.5px;color:var(--accent-kincha);font-family:var(--font-serif);">案内メモ</div>
+            <h2 id="pin-title" class="font-serif" style="margin:4px 0 8px;font-size:18px;">見出し</h2>
+            <p id="pin-body" style="margin:0 0 10px;font-size:12.5px;line-height:1.68;color:#ece7dc;"></p>
+
+            <div style="padding:10px 12px;border-radius:10px;background:rgba(214,178,60,0.09);border:1px solid rgba(214,178,60,0.3);margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span class="font-serif" style="font-size:11px;color:var(--accent-kincha);font-weight:700;">✦ 長編ストーリー解説</span>
+                    <span id="pin-story-badge" style="font-size:10px;color:var(--accent-kincha);">🔒 500円会員</span>
+                </div>
+                <p id="pin-long-story" style="margin:0;font-size:11.5px;line-height:1.6;color:var(--text-muted);"></p>
+            </div>
+
+            <div style="padding:8px 11px;border-left:3px solid var(--accent-shuiro);background:rgba(255,255,255,0.04);border-radius:0 8px 8px 0;margin-bottom:12px;font-size:11.5px;color:#d8d2c6;">
+                <span style="color:var(--accent-kincha);font-family:var(--font-serif);">風情ひとこと：</span>
+                <span id="pin-quote"></span>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="pin-voice-btn" class="btn-ghost" type="button" style="flex:1;">
+                    <span>🗣️</span>
+                    <span id="pin-voice-label">音声ガイド</span>
+                </button>
+                <button id="pin-stamp-btn" class="btn-red" type="button" style="flex:1;">御朱印をいただく</button>
+            </div>
+
+            <div class="pr-box">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span id="pr-title" class="font-serif" style="font-size:11px;color:var(--accent-kincha);font-weight:700;">旅の案内・関連リンク</span>
+                    <span class="pr-tag">PR</span>
+                </div>
+                <p id="pr-desc" style="margin:5px 0 0;font-size:11px;line-height:1.55;color:#e0dad0;"></p>
+                <div class="pr-links">
+                    <a id="pr-link-1" class="pr-link-btn" href="https://travel.rakuten.co.jp/yado/kyoto/" target="_blank" rel="sponsored noopener noreferrer">周辺の宿を見る →</a>
+                    <a id="pr-link-2" class="pr-link-btn" href="https://www.asoview.com/area/kyoto/" target="_blank" rel="sponsored noopener noreferrer">体験・お取り寄せ →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 無料版 / 月額500円プラン切替＆パスコードモーダル -->
+    <div id="plan-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <button id="plan-close-btn" class="close-x" type="button">✕</button>
+            <div style="text-align:center;margin-bottom:12px;">
+                <div style="font-size:10.5px;color:var(--accent-kincha);font-family:var(--font-serif);letter-spacing:0.1em;">KYOTO IBUKI PLAN</div>
+                <h2 class="font-serif" style="margin:3px 0;font-size:18px;">無料版と月額500円プラン</h2>
+                <p style="margin:0;font-size:11.5px;color:var(--text-muted);">5大名所の王道体験は無料。さらに秘境・朝霧・雪・蛍・音調合へ。</p>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+                <div style="padding:10px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);">
+                    <div class="font-serif" style="font-size:12px;font-weight:700;color:#8be2a6;margin-bottom:5px;">無料版（0円）</div>
+                    <ul style="margin:0;padding-left:14px;font-size:10.5px;line-height:1.65;color:#ded9ce;">
+                        <li>全5大名所＆①②視点</li>
+                        <li>昼下がり·黄昏·宵闇</li>
+                        <li>桜吹雪·紅葉·京の雨</li>
+                        <li>基本環境音·御朱印帳</li>
+                    </ul>
+                </div>
+                <div style="padding:10px;border-radius:12px;background:rgba(214,178,60,0.11);border:1px solid var(--border-gold);">
+                    <div class="font-serif" style="font-size:12px;font-weight:700;color:var(--accent-kincha);margin-bottom:5px;">月額500円プラン</div>
+                    <ul style="margin:0;padding-left:14px;font-size:10.5px;line-height:1.65;">
+                        <li>③ 特別絶景アングル</li>
+                        <li>朝霧·雪化粧·蛍の夕べ</li>
+                        <li>音ミキサー＆タイマー</li>
+                        <li>長編音声·特別金印·広告消去</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                <a id="stripe-link" class="btn-gold" href="#" target="_blank" rel="noopener noreferrer">月額500円プランを始める（Stripe）</a>
+                <button id="toggle-plan-preview" class="btn-ghost" type="button">
+                    <span>🔁</span>
+                    <span>無料版 / 500円プラン表示を即時切替</span>
+                </button>
+            </div>
+
+            <div style="padding-top:10px;border-top:1px solid rgba(255,255,255,0.12);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;">会員パスコード認証（テスト用: <code>KYOTO500</code>）</div>
+                <div style="display:flex;gap:6px;">
+                    <input id="passcode-input" type="text" placeholder="KYOTO500" style="flex:1;min-height:42px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:12px;">
+                    <button id="passcode-btn" class="btn-red" type="button">認証</button>
+                </div>
+                <div id="passcode-msg" style="font-size:11px;margin-top:5px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- デジタル御朱印帳モーダル -->
+    <div id="goshuin-modal" class="modal-backdrop hidden">
+        <div class="modal-card goshuin-sheet">
+            <button id="goshuin-close-btn" class="close-x" type="button" style="background:rgba(0,0,0,0.1);color:#161920;">✕</button>
+            <h2 class="font-serif" style="margin:0;font-size:18px;color:#161920;">京都散策・デジタル御朱印帳</h2>
+            <p style="margin:3px 0 0;font-size:11px;color:#5d5444;">名所を巡ると参拝記録が残ります（500円会員は特別金印）</p>
+
+            <div id="goshuin-list" class="goshuin-grid"></div>
+
+            <div class="pr-box" style="background:#fbf5e6;border-color:rgba(180,140,39,0.5);color:#161920;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="font-serif" style="font-size:11px;font-weight:700;color:var(--accent-shuiro);">旅のしおり・おうち時間（PR）</span>
+                    <span class="pr-tag" style="background:rgba(0,0,0,0.08);color:#444;">PR</span>
+                </div>
+                <div class="pr-links">
+                    <a id="goshuin-pr-hotel" class="pr-link-btn" style="background:#161920;color:#f7f3e9;" href="https://travel.rakuten.co.jp/yado/kyoto/" target="_blank" rel="sponsored noopener noreferrer">京都の宿を探す →</a>
+                    <a id="goshuin-pr-tea" class="pr-link-btn" style="background:#3e5f48;color:#fff;" href="https://search.rakuten.co.jp/search/mall/%E5%AE%87%E6%B2%BB%E6%8A%B9%E8%8C%B6+%E4%BA%AC%E8%8F%93%E5%AD%90/" target="_blank" rel="sponsored noopener noreferrer">抹茶・京菓子 →</a>
+                </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:10.5px;color:#685f4e;">
+                <span>名所切替で自動押印</span>
+                <button id="goshuin-reset-btn" type="button" style="min-height:36px;color:var(--accent-shuiro);text-decoration:underline;">記録をリセット</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- オーナー設定モーダル -->
+    <div id="owner-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <button id="owner-close-btn" class="close-x" type="button">✕</button>
+            <h2 class="font-serif" style="margin:0 0 4px;font-size:17px;color:var(--accent-kincha);">⚙ オーナー設定・収益化URL</h2>
+            <p style="margin:0 0 12px;font-size:11px;color:var(--text-muted);">Stripe決済リンク・会員パスコード・アフィリエイトリンク・法務情報を設定できます。</p>
+
+            <div class="form-field">
+                <label>Stripe Payment Link URL（月額500円）</label>
+                <input id="cfg-stripe" type="url" placeholder="https://buy.stripe.com/...">
+            </div>
+            <div class="form-field">
+                <label>会員パスコード（カンマ区切り可）</label>
+                <input id="cfg-codes" type="text" placeholder="KYOTO500, IBUKI2026">
+            </div>
+            <div class="form-field">
+                <label>宿泊アフィリエイトURL</label>
+                <input id="cfg-hotel" type="url" placeholder="https://travel.rakuten.co.jp/yado/kyoto/">
+            </div>
+            <div class="form-field">
+                <label>体験・お取り寄せアフィリエイトURL</label>
+                <input id="cfg-exp" type="url" placeholder="https://www.asoview.com/area/kyoto/">
+            </div>
+            <div class="form-field">
+                <label>特商法表記：運営事業者・連絡先</label>
+                <input id="cfg-operator" type="text" placeholder="京の息吹 運営事務局 / contact@example.com">
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:space-between;margin-top:12px;">
+                <button id="cfg-reset-btn" class="btn-ghost" type="button">初期値へ</button>
+                <button id="cfg-save-btn" class="btn-gold" type="button">保存して反映</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 法務モーダル -->
+    <div id="legal-modal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <button id="legal-close-btn" class="close-x" type="button">✕</button>
+            <h2 id="legal-title" class="font-serif" style="margin:0 0 10px;font-size:17px;color:var(--accent-kincha);">表記</h2>
+            <div id="legal-body" style="font-size:12px;line-height:1.7;color:#ded9ce;"></div>
+        </div>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast-banner" role="status" aria-live="polite"></div>
+
+    <script>
+        /* =====================================================================
+           1. 構成・京都5大名所写真データ（実写フォト＋即時フォールバック描画）
+           ===================================================================== */
+        const DEFAULT_CFG = {
+            stripeUrl: '',
+            codes: ['KYOTO500', 'IBUKI2026'],
+            hotelUrl: 'https://travel.rakuten.co.jp/yado/kyoto/',
+            expUrl: 'https://www.asoview.com/area/kyoto/',
+            teaUrl: 'https://search.rakuten.co.jp/search/mall/%E5%AE%87%E6%B2%BB%E6%8A%B9%E8%8C%B6+%E4%BA%AC%E8%8F%93%E5%AD%90/',
+            operator: '京の息吹 運営事務局（公開時に事業者名・所在地・連絡先をご記入ください）'
+        };
+
+        let cfg = Object.assign({}, DEFAULT_CFG);
+
+        // 実写風景写真URL（通信遅延・オフライン時は即座にリアル風景フォト描画へフォールバック）
+        const SPOTS = {
+            fushimi: {
+                id: 'fushimi',
+                area: '伏見区・稲荷山',
+                title: '伏見稲荷大社',
+                sub: '街並みを排した鳥居参道。朱の柱が奥へと連なる静謐な神域。',
+                goshuinTitle: '奉拝 伏見稲荷大社',
+                goshuinSub: '千本鳥居・参道参拝之証',
+                isFushimiCompact: true,
+                maxYaw: 14,
+                maxPitch: 8,
+                initZoom: 1.18,
+                prCopy: '鳥居の参道を歩いた余韻のまま、京都南部の宿や静かな朝参り体験を探してみませんか。',
+                angles: [
+                    {
+                        id: 'f1', premium: false, label: '① 千本鳥居の回廊', motif: 'torii_corridor',
+                        photoUrl: 'https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: -0.04, cat: '神域の朱', title: '連なる奉納鳥居と木漏れ日',
+                                body: '左右に街並みを見せず、朱色の鳥居と参道の奥行きだけに視線を絞ったコンパクトな構図です。',
+                                longStory: '奉納された朱色の鳥居が幾重にも重なり、光の差し込み方によって深い陰影と静寂を生み出します。',
+                                quote: '「お稲荷さんへお参りして、心も整いますえ」'
+                            },
+                            {
+                                x: -0.08, y: 0.18, cat: '参道の気配', title: '鳥居の足元と山林の緑',
+                                body: '山林の緑と朱の柱の対比を間近に感じられる視点です。',
+                                longStory: '参道を進むほどに木々の気配が濃くなり、鳥居の朱色がより鮮やかに浮かび上がります。',
+                                quote: '一歩ずつ歩みを進めるごとに空気が澄んでいきます。'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'f2', premium: false, label: '② 山道・石段の径', motif: 'torii_slope',
+                        photoUrl: 'https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.02, y: 0.02, cat: '稲荷山の山道', title: '山中の鳥居道と静寂',
+                                body: '街の気配を完全に排し、山の鳥居道と奥行きに集中できる視点です。',
+                                longStory: '木立に囲まれた山道では、風や雨の気配が鳥居の連なりとともに静かに響きます。',
+                                quote: '「山の参道は、昼でもどこか落ち着いた静けさがありますな」'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'f3', premium: true, label: '③ 奥の鳥居・静寂', motif: 'torii_inner',
+                        photoUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: -0.02, cat: '500円会員・特別視点', title: '鳥居の回廊・最奥の静謐',
+                                body: '引き締まった視野で、朱の重なりと奥行きだけに深く浸れる特別アングルです。',
+                                longStory: '静かな光や朝霧・雪化粧と重なると、朱色と山の陰影が幻想的に溶け合います。',
+                                quote: '「ここだけの静かな時間を、どうぞゆっくり味わっておくれやす」'
+                            }
+                        ]
+                    }
+                ]
+            },
+            arashiyama: {
+                id: 'arashiyama',
+                area: '右京区・嵯峨野',
+                title: '嵐山・竹林と渡月橋',
+                sub: '天を突く青竹の小径と、大堰川に架かる渡月橋。風の音に包まれる嵯峨野。',
+                goshuinTitle: '散策 嵐山嵯峨野',
+                goshuinSub: '竹林の小径・渡月橋散策之証',
+                isFushimiCompact: false,
+                maxYaw: 36,
+                maxPitch: 16,
+                initZoom: 1.0,
+                prCopy: '竹林の風を感じたあとは、嵐山周辺の宿や嵯峨野の体験・お取り寄せを覗いてみませんか。',
+                angles: [
+                    {
+                        id: 'a1', premium: false, label: '① 竹林の小径', motif: 'bamboo_grove',
+                        photoUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: -0.12, y: -0.06, cat: '音風景の径', title: '天へ伸びる青竹と木漏れ日',
+                                body: '縦に伸びる青竹と柔らかい光の筋。指でスワイプすると竹林を見渡せます。',
+                                longStory: '嵯峨野の竹林は日差しを穏やかに透かし、風や雨の気配を繊細な緑で映します。',
+                                quote: '「竹の葉が風に揺れる音に耳を澄ませてみてください」'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'a2', premium: false, label: '② 渡月橋と川辺', motif: 'arashiyama_river',
+                        photoUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.12, y: 0.04, cat: '大堰川・渡月橋', title: '水面に映る山並みと川辺',
+                                body: '穏やかな川の流れと山の稜線。刻限によって空と水面の彩りが変化します。',
+                                longStory: '嵐山の山並みと川面が織りなす風景は、四季の移ろいを静かに映し出します。',
+                                quote: '川風と山並みの重なりが心地よいひとときです。'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'a3', premium: true, label: '③ 奥嵯峨・静寂の庭', motif: 'bamboo_deep',
+                        photoUrl: 'https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: 0.03, cat: '500円会員・特別視点', title: '奥嵯峨の静かな竹庭',
+                                body: '落ち着いた庭先の視点。朝霧や雪化粧との相性も抜群です。',
+                                longStory: '静かな時間に眺める竹と苔の景色は、心をすっと落ち着かせてくれます。',
+                                quote: '「静かなお庭で、少し深呼吸してみてくださいな」'
+                            }
+                        ]
+                    }
+                ]
+            },
+            kiyomizu: {
+                id: 'kiyomizu',
+                area: '東山区・音羽山',
+                title: '音羽山 清水寺',
+                sub: '懸造りの舞台と朱の堂宇。音羽山の緑と空に映える東山の古刹。',
+                goshuinTitle: '奉拝 音羽山清水寺',
+                goshuinSub: '音羽山・舞台参拝之証',
+                isFushimiCompact: false,
+                maxYaw: 36,
+                maxPitch: 16,
+                initZoom: 1.0,
+                prCopy: '東山の余韻とともに、周辺エリアの宿や京菓子・体験プランをチェックしてみませんか。',
+                angles: [
+                    {
+                        id: 'k1', premium: false, label: '① 舞台と朱の堂宇', motif: 'kiyomizu_stage',
+                        photoUrl: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: -0.08, y: 0.02, cat: '懸造りの建築', title: '木組みの舞台と朱の堂宇',
+                                body: '山斜面に組み上げられた舞台と朱の堂宇。桜や紅葉、雨や雪に映える東山の名景です。',
+                                longStory: '長い歳月を受け継ぐ木造建築と山並みの調和が、時間帯ごとに異なる趣を見せます。',
+                                quote: '「高台から吹く風と、木のぬくもりを感じるひとときです」'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'k2', premium: false, label: '② 朱の塔と参道', motif: 'kiyomizu_pagoda',
+                        photoUrl: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.1, y: -0.05, cat: '境内の佇まい', title: '空に映える朱の堂宇と木立',
+                                body: '落ち着いた参拝の空気と東山の景色を味わえます。',
+                                longStory: '境内の朱と緑の対比は、黄昏や朝霧の中でも穏やかな存在感を放ちます。',
+                                quote: '空と朱色の重なりが印象的な視点です。'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'k3', premium: true, label: '③ 奥の院・全景視点', motif: 'kiyomizu_vista',
+                        photoUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: 0.02, cat: '500円会員・特別視点', title: '奥の院から望む東山の眺め',
+                                body: '山並みと境内の広がりを望む特別視点。刻限の移ろいをじっくり楽しめます。',
+                                longStory: '朝霧や雪化粧に包まれた景色は、格別の静謐さを湛えています。',
+                                quote: '「刻限を変えると、また違う物語が見えてきますえ」'
+                            }
+                        ]
+                    }
+                ]
+            },
+            kinkakuji: {
+                id: 'kinkakuji',
+                area: '北区・衣笠',
+                title: '鹿苑寺（金閣寺）',
+                sub: '鏡湖池の水面に黄金の舎利殿が映り込む、北山文化の雅な名景。',
+                goshuinTitle: '奉拝 鹿苑寺金閣',
+                goshuinSub: '鏡湖池・舎利殿参拝之証',
+                isFushimiCompact: false,
+                maxYaw: 36,
+                maxPitch: 16,
+                initZoom: 1.0,
+                prCopy: '北山エリアの静かな滞在や、自宅でお茶を愉しむ宇治抹茶・和菓子もおすすめです。',
+                angles: [
+                    {
+                        id: 'kn1', premium: false, label: '① 鏡湖池と舎利殿', motif: 'kinkaku_pond',
+                        photoUrl: 'https://images.unsplash.com/photo-1524413840807-0c3cb6fa808d?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: -0.02, cat: '鏡湖池の景', title: '水面に映る黄金の舎利殿',
+                                body: '鏡湖池の水面に黄金の舎利殿と木々の緑が映り込む名景です。',
+                                longStory: '池のさざ波と金箔の輝き、周囲の木立が重なり、北山文化の静謐な美しさを伝えます。',
+                                quote: '「水面に映る景色をぼんやり眺めるだけでも心が落ち着きます」'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'kn2', premium: false, label: '② 池畔の松と汀', motif: 'kinkaku_shore',
+                        photoUrl: 'https://images.unsplash.com/photo-1545569341-9eb8b30979d9?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.14, y: 0.04, cat: '庭園の彩り', title: '池のほとりと木々の佇まい',
+                                body: '池のほとりから望む静かな景色。指でスワイプすると視点が滑らかに動きます。',
+                                longStory: '庭園を巡る視点の変化によって、光と水面の表情が繊細に変わります。',
+                                quote: '静かな池のほとりを巡る散策路です。'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'kn3', premium: true, label: '③ 高台・雪月花視点', motif: 'kinkaku_high',
+                        photoUrl: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: 0.0, cat: '500円会員・特別視点', title: '木立越しに望む静寂の景',
+                                body: '落ち着いた構図で望む特別視点。雪化粧や朝霧と合わせると格別です。',
+                                longStory: '雪や霧に包まれた風景は、静けさの中に凛とした品格を感じさせます。',
+                                quote: '「朝霧や雪化粧と合わせると、また格別な趣になりますえ」'
+                            }
+                        ]
+                    }
+                ]
+            },
+            gion: {
+                id: 'gion',
+                area: '東山区・祇園',
+                title: '祇園・白川と花見小路',
+                sub: 'せせらぎと柳、灯りが溶け合う京の情緒あふれる花街。',
+                goshuinTitle: '散策 祇園白川',
+                goshuinSub: '白川・花見小路散策之証',
+                isFushimiCompact: false,
+                maxYaw: 36,
+                maxPitch: 16,
+                initZoom: 1.0,
+                prCopy: '夕暮れや夜の祇園の余韻に浸ったら、京都の宿や京菓子・体験もチェックしてみてください。',
+                angles: [
+                    {
+                        id: 'g1', premium: false, label: '① 白川・灯りの小径', motif: 'gion_shirakawa',
+                        photoUrl: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: -0.1, y: 0.04, cat: '白川の情緒', title: '川辺の柳と柔らかな灯り',
+                                body: '川の流れと柳、柔らかな灯り。黄昏や宵闇になると一層情緒が深まります。',
+                                longStory: '川面の反射と町家の佇まいが溶け合い、京都らしい夕暮れ・夜の空気を味わえます。',
+                                quote: '「おこしやす。川音と灯りが織りなす京の夕暮れですえ」'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'g2', premium: false, label: '② 花見小路の町並み', motif: 'gion_street',
+                        photoUrl: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.12, y: 0.04, cat: '京町家の趣', title: '木造町家と静かな通り',
+                                body: '落ち着いた木造建築と通り。灯りがともる時間帯もおすすめです。',
+                                longStory: '伝統的な町家の軒並みと柔らかな光が、しっとりとした京の風情を伝えます。',
+                                quote: '光の温かさを感じる通りです。'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'g3', premium: true, label: '③ 石塀小路・隠れ路地', motif: 'gion_alley',
+                        photoUrl: 'https://images.unsplash.com/photo-1478436127897-769e1b3f0f36?auto=format&fit=crop&w=1400&q=80',
+                        pins: [
+                            {
+                                x: 0.0, y: 0.05, cat: '500円会員・特別視点', title: 'ひっそりと続く静かな路地',
+                                body: '通りから一歩入った静かな路地。柔らかな灯りに包まれる特別アングルです。',
+                                longStory: '静かな路地空間で、雨や雪・灯りの揺らぎをじっくり味わえます。',
+                                quote: '「静かな路地裏で、京の夜をゆっくりお楽しみください」'
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        const TIME_META = {
+            day: { label: '昼下がり', free: true },
+            twilight: { label: '黄昏時', free: true },
+            night: { label: '宵闇', free: true },
+            morning: { label: '朝霧', free: false }
+        };
+
+        const WEATHER_META = {
+            sakura: { label: '春・桜吹雪', free: true },
+            momiji: { label: '秋・紅葉散る', free: true },
+            rain: { label: '京の雨', free: true },
+            snow: { label: '冬・雪化粧', free: false },
+            firefly: { label: '初夏・蛍の夕べ', free: false }
+        };
+
+        const state = {
+            isPremium: false,
+            spotId: 'fushimi',
+            angleIndex: 0,
+            time: 'day',
+            weather: 'sakura',
+            yaw: 0,
+            pitch: 0,
+            velYaw: 0,
+            velPitch: 0,
+            zoom: 1.18,
+            goshuin: {},
+            activePin: null,
+            sleepEndAt: null
+        };
+
+        /* =====================================================================
+           2. トースト・保存・御朱印・プラン管理
+           ===================================================================== */
+        let toastTimer = null;
+        function showToast(msg) {
+            const el = document.getElementById('toast-banner');
+            el.textContent = msg;
+            el.classList.add('visible');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('visible'), 2100);
+        }
+
+        function loadConfig() {
+            try {
+                const raw = localStorage.getItem('kyoto_ibuki_photo_cfg_v1');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    cfg = Object.assign({}, DEFAULT_CFG, parsed);
+                    if (!Array.isArray(cfg.codes) || !cfg.codes.length) cfg.codes = DEFAULT_CFG.codes.slice();
+                }
+            } catch (e) {}
+            syncLinks();
+        }
+
+        function syncLinks() {
+            document.getElementById('sponsor-link').href = cfg.hotelUrl;
+            document.getElementById('goshuin-pr-hotel').href = cfg.hotelUrl;
+            document.getElementById('goshuin-pr-tea').href = cfg.teaUrl;
+            document.getElementById('stripe-link').href = cfg.stripeUrl || '#';
+            syncContextualPR();
+        }
+
+        function loadGoshuin() {
+            try {
+                const raw = localStorage.getItem('kyoto_ibuki_photo_goshuin_v1');
+                if (raw) state.goshuin = JSON.parse(raw);
+            } catch (e) {}
+            updateGoshuinCount();
+        }
+
+        function stampGoshuin(spotId, notify) {
+            const sp = SPOTS[spotId];
+            if (!sp) return;
+            const now = new Date();
+            state.goshuin[spotId] = {
+                date: `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`,
+                time: TIME_META[state.time].label,
+                weather: WEATHER_META[state.weather].label,
+                gold: state.isPremium || Boolean(state.goshuin[spotId] && state.goshuin[spotId].gold)
+            };
+            try { localStorage.setItem('kyoto_ibuki_photo_goshuin_v1', JSON.stringify(state.goshuin)); } catch (e) {}
+            updateGoshuinCount();
+            if (notify) showToast(`${sp.title}の御朱印をいただきました`);
+        }
+
+        function updateGoshuinCount() {
+            document.getElementById('goshuin-count').textContent = `${Object.keys(state.goshuin).length}/5`;
+        }
+
+        /* =====================================================================
+           3. Web Audio API 環境音＆鐘サウンド
+           ===================================================================== */
+        class KyotoSoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.playing = false;
+                this.master = null;
+                this.wind = null;
+                this.stream = null;
+                this.rain = null;
+                this.vols = { master: 0.75, wind: 0.6, stream: 0.55, rain: 0.5 };
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                this.ctx = new AC();
+
+                this.master = this.ctx.createGain();
+                this.master.gain.value = 0;
+                this.master.connect(this.ctx.destination);
+
+                const sr = this.ctx.sampleRate;
+                const len = sr * 3;
+                const pink = this.ctx.createBuffer(1, len, sr);
+                const pd = pink.getChannelData(0);
+                let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+                for (let i = 0; i < len; i++) {
+                    const w = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + w * 0.0555179;
+                    b1 = 0.99332 * b1 + w * 0.0750759;
+                    b2 = 0.96900 * b2 + w * 0.1538520;
+                    b3 = 0.86650 * b3 + w * 0.3104856;
+                    b4 = 0.55000 * b4 + w * 0.5329522;
+                    b5 = -0.7616 * b5 - w * 0.0168980;
+                    pd[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.035;
+                    b6 = w * 0.115926;
+                }
+
+                const windSrc = this.ctx.createBufferSource();
+                windSrc.buffer = pink;
+                windSrc.loop = true;
+                const windFilter = this.ctx.createBiquadFilter();
+                windFilter.type = 'bandpass';
+                windFilter.frequency.value = 450;
+                this.wind = this.ctx.createGain();
+                this.wind.gain.value = 0.25;
+                windSrc.connect(windFilter);
+                windFilter.connect(this.wind);
+                this.wind.connect(this.master);
+                windSrc.start();
+
+                const streamSrc = this.ctx.createBufferSource();
+                streamSrc.buffer = pink;
+                streamSrc.loop = true;
+                const streamFilter = this.ctx.createBiquadFilter();
+                streamFilter.type = 'bandpass';
+                streamFilter.frequency.value = 920;
+                this.stream = this.ctx.createGain();
+                this.stream.gain.value = 0.2;
+                streamSrc.connect(streamFilter);
+                streamFilter.connect(this.stream);
+                this.stream.connect(this.master);
+                streamSrc.start();
+
+                const white = this.ctx.createBuffer(1, len, sr);
+                const wd = white.getChannelData(0);
+                for (let i = 0; i < len; i++) wd[i] = (Math.random() * 2 - 1) * 0.03;
+                const rainSrc = this.ctx.createBufferSource();
+                rainSrc.buffer = white;
+                rainSrc.loop = true;
+                const rainFilter = this.ctx.createBiquadFilter();
+                rainFilter.type = 'lowpass';
+                rainFilter.frequency.value = 1750;
+                this.rain = this.ctx.createGain();
+                this.rain.gain.value = 0;
+                rainSrc.connect(rainFilter);
+                rainFilter.connect(this.rain);
+                this.rain.connect(this.master);
+                rainSrc.start();
+            }
+
+            toggle(force = null) {
+                try {
+                    this.init();
+                    if (!this.ctx) return false;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    this.playing = force !== null ? force : !this.playing;
+                    const t = this.ctx.currentTime;
+                    if (this.playing) {
+                        this.master.gain.setTargetAtTime(this.vols.master, t, 0.2);
+                        this.applyMix();
+                    } else {
+                        this.master.gain.setTargetAtTime(0, t, 0.15);
+                    }
+                    return this.playing;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            applyMix() {
+                if (!this.ctx || !this.playing) return;
+                const t = this.ctx.currentTime;
+                if (state.isPremium) {
+                    this.wind.gain.setTargetAtTime(this.vols.wind * 0.55, t, 0.2);
+                    this.stream.gain.setTargetAtTime(this.vols.stream * 0.55, t, 0.2);
+                    this.rain.gain.setTargetAtTime(this.vols.rain * 0.65, t, 0.2);
+                } else {
+                    const wv = state.spotId === 'arashiyama' ? 0.48 : 0.24;
+                    const sv = (state.spotId === 'kinkakuji' || state.spotId === 'gion') ? 0.36 : 0.15;
+                    const rv = state.weather === 'rain' ? 0.48 : 0.02;
+                    this.wind.gain.setTargetAtTime(wv, t, 0.25);
+                    this.stream.gain.setTargetAtTime(sv, t, 0.25);
+                    this.rain.gain.setTargetAtTime(rv, t, 0.25);
+                }
+            }
+
+            setVol(key, val) {
+                this.vols[key] = Number(val) / 100;
+                if (!this.ctx) return;
+                if (key === 'master' && this.playing) {
+                    this.master.gain.setTargetAtTime(this.vols.master, this.ctx.currentTime, 0.08);
+                } else {
+                    this.applyMix();
+                }
+            }
+
+            ringBell() {
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    const t = this.ctx.currentTime;
+                    [146.83, 295.1, 370.0].forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const g = this.ctx.createGain();
+                        osc.type = idx === 0 ? 'sine' : 'triangle';
+                        osc.frequency.setValueAtTime(freq, t);
+                        g.gain.setValueAtTime(0.001, t);
+                        g.gain.linearRampToValueAtTime(0.15 / (idx + 1), t + 0.02);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 3.4 - idx * 0.5);
+                        osc.connect(g);
+                        g.connect(this.ctx.destination);
+                        osc.start(t);
+                        osc.stop(t + 3.6);
+                    });
+                } catch (e) {}
+            }
+        }
+
+        const soundEngine = new KyotoSoundEngine();
+
+        /* =====================================================================
+           4. 写真映像ローダー（実写フォト＋即時フォールバック）＆風情パーティクル
+           ===================================================================== */
+        const photoEl = document.getElementById('scene-photo');
+        const photoLayerEl = document.getElementById('photo-layer');
+        const fallbackCanvas = document.getElementById('photo-fallback-canvas');
+        const fbCtx = fallbackCanvas.getContext('2d');
+        const weatherCanvas = document.getElementById('weather-canvas');
+        const wCtx = weatherCanvas.getContext('2d');
+        const atmoEl = document.getElementById('atmosphere-overlay');
+
+        let vw = window.innerWidth;
+        let vh = window.innerHeight;
+        let photoLoadedOk = false;
+        let particles = [];
+
+        function resizeCanvases() {
+            vw = window.innerWidth;
+            vh = window.innerHeight;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            [fallbackCanvas, weatherCanvas].forEach((c) => {
+                c.width = Math.floor(vw * dpr);
+                c.height = Math.floor(vh * dpr);
+            });
+            fbCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            wCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawFallbackPhoto();
+        }
+
+        // 実写フォトが未完了・通信不可でも即座にリアル風景写真を補完描画
+        function drawFallbackPhoto() {
+            const sp = SPOTS[state.spotId];
+            const ang = sp.angles[state.angleIndex] || sp.angles[0];
+            const isSnow = state.weather === 'snow';
+
+            const sky = fbCtx.createLinearGradient(0, 0, 0, vh * 0.65);
+            if (state.time === 'night') {
+                sky.addColorStop(0, '#090e1a');
+                sky.addColorStop(1, '#1a2844');
+            } else if (state.time === 'twilight') {
+                sky.addColorStop(0, '#362246');
+                sky.addColorStop(0.55, '#b64d32');
+                sky.addColorStop(1, '#f4a85a');
+            } else if (state.time === 'morning') {
+                sky.addColorStop(0, '#9bb6ca');
+                sky.addColorStop(1, '#e6eff5');
+            } else {
+                sky.addColorStop(0, '#5a8ab0');
+                sky.addColorStop(1, '#dce9f0');
+            }
+            fbCtx.fillStyle = sky;
+            fbCtx.fillRect(0, 0, vw, vh);
+
+            // 遠景の山稜
+            fbCtx.fillStyle = state.time === 'night' ? '#10192b' : (isSnow ? '#d8e4ee' : '#4a6b5d');
+            fbCtx.beginPath();
+            fbCtx.moveTo(0, vh * 0.56);
+            for (let x = 0; x <= vw; x += 48) {
+                fbCtx.lineTo(x, vh * 0.44 + Math.sin(x * 0.008 + state.angleIndex) * 24);
+            }
+            fbCtx.lineTo(vw, vh);
+            fbCtx.lineTo(0, vh);
+            fbCtx.closePath();
+            fbCtx.fill();
+
+            if (sp.isFushimiCompact) {
+                // 伏見稲荷：街並みを排したコンパクトな鳥居回廊
+                const w = Math.min(vw * 0.82, 410);
+                const h = Math.min(vh * 0.62, 460);
+                const lx = (vw - w) * 0.5;
+                const ty = (vh - h) * 0.48;
+                fbCtx.fillStyle = '#0b0e13';
+                fbCtx.fillRect(0, 0, vw, vh);
+                fbCtx.save();
+                fbCtx.beginPath();
+                fbCtx.roundRect(lx, ty, w, h, 14);
+                fbCtx.clip();
+                fbCtx.fillStyle = isSnow ? '#d8e3ec' : '#35312c';
+                fbCtx.fillRect(lx, ty + h * 0.55, w, h * 0.45);
+                for (let i = 7; i >= 1; i--) {
+                    const p = Math.pow(i / 7, 1.5);
+                    const gw = w * (0.18 + 0.54 * p);
+                    const gh = h * (0.2 + 0.6 * p);
+                    const gx = vw * 0.5;
+                    const gy = ty + h * 0.56 + p * 44;
+                    const pw = Math.max(4, gw * 0.085);
+                    fbCtx.fillStyle = state.time === 'night' ? '#7b1f16' : '#c93a2b';
+                    fbCtx.fillRect(gx - gw * 0.42, gy - gh, pw, gh);
+                    fbCtx.fillRect(gx + gw * 0.42 - pw, gy - gh, pw, gh);
+                    fbCtx.fillStyle = state.time === 'night' ? '#92261b' : '#df4838';
+                    fbCtx.fillRect(gx - gw * 0.54, gy - gh - pw * 0.3, gw * 1.08, Math.max(5, pw * 0.85));
+                }
+                fbCtx.restore();
+            } else if (ang.motif.startsWith('kinkaku')) {
+                fbCtx.fillStyle = state.time === 'night' ? '#13243b' : '#4a767b';
+                fbCtx.fillRect(0, vh * 0.56, vw, vh * 0.44);
+                const px = vw * 0.5;
+                const py = vh * 0.49;
+                fbCtx.fillStyle = '#dfb63b';
+                fbCtx.fillRect(px - 65, py - 38, 130, 38);
+                fbCtx.fillStyle = isSnow ? '#f2f6fa' : '#262b34';
+                fbCtx.fillRect(px - 78, py - 46, 156, 9);
+            } else {
+                fbCtx.fillStyle = isSnow ? '#dde7f0' : '#2b4736';
+                fbCtx.fillRect(0, vh * 0.56, vw, vh * 0.44);
+            }
+        }
+
+        function loadCurrentPhoto() {
+            const sp = SPOTS[state.spotId];
+            const ang = sp.angles[state.angleIndex] || sp.angles[0];
+            photoLoadedOk = false;
+            photoEl.style.opacity = '0';
+            drawFallbackPhoto();
+
+            const url = ang.photoUrl || '';
+            if (!url) return;
+
+            const probe = new Image();
+            probe.onload = () => {
+                if (state.spotId === sp.id && (sp.angles[state.angleIndex] && sp.angles[state.angleIndex].id === ang.id)) {
+                    photoEl.src = url;
+                    photoEl.style.opacity = '1';
+                    photoLoadedOk = true;
+                }
+            };
+            probe.onerror = () => {
+                photoEl.style.opacity = '0';
+                photoLoadedOk = false;
+                drawFallbackPhoto();
+            };
+            probe.src = url;
+        }
+
+        function applyPhotoAtmosphere() {
+            const sp = SPOTS[state.spotId];
+            let filterCss = 'brightness(1.0) contrast(1.04) saturate(1.08)';
+            let overlayBg = 'transparent';
+
+            if (state.time === 'twilight') {
+                filterCss = 'brightness(0.88) contrast(1.08) saturate(1.22) sepia(0.18)';
+                overlayBg = 'linear-gradient(180deg, rgba(64, 30, 74, 0.24), rgba(226, 108, 46, 0.22))';
+            } else if (state.time === 'night') {
+                filterCss = 'brightness(0.62) contrast(1.12) saturate(0.82)';
+                overlayBg = 'rgba(7, 13, 30, 0.34)';
+            } else if (state.time === 'morning') {
+                filterCss = 'brightness(0.97) contrast(0.95) saturate(0.92)';
+                overlayBg = 'linear-gradient(180deg, rgba(226, 238, 248, 0.08), rgba(226, 238, 248, 0.32))';
+            }
+
+            if (state.weather === 'snow') {
+                filterCss += ' brightness(1.06) saturate(0.68)';
+            } else if (state.weather === 'rain') {
+                filterCss += ' contrast(1.06) saturate(0.9)';
+            }
+
+            if (sp.isFushimiCompact) {
+                photoEl.style.maxWidth = '430px';
+                photoEl.style.margin = '0 auto';
+            } else {
+                photoEl.style.maxWidth = 'none';
+                photoEl.style.margin = '0';
+            }
+
+            photoEl.style.filter = filterCss;
+            atmoEl.style.background = overlayBg;
+        }
+
+        function initParticles() {
+            const count = state.weather === 'snow' ? 85 : 58;
+            particles = [];
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * vw,
+                    y: Math.random() * vh,
+                    r: 2.5 + Math.random() * 4,
+                    vx: -0.5 + Math.random() * 1.0,
+                    vy: 0.6 + Math.random() * 1.1,
+                    phase: Math.random() * Math.PI * 2,
+                    rot: Math.random() * Math.PI * 2,
+                    vRot: (Math.random() - 0.5) * 0.05
+                });
+            }
+        }
+
+        function drawParticles(tSec) {
+            wCtx.clearRect(0, 0, vw, vh);
+            particles.forEach((p) => {
+                p.phase += 0.03;
+                if (state.weather === 'rain') {
+                    p.y += p.vy * 11;
+                    p.x += p.vx * 1.2 - 1.2;
+                    if (p.y > vh) { p.y = -14; p.x = Math.random() * vw; }
+                    wCtx.strokeStyle = 'rgba(218, 238, 255, 0.45)';
+                    wCtx.lineWidth = 1.2;
+                    wCtx.beginPath();
+                    wCtx.moveTo(p.x, p.y);
+                    wCtx.lineTo(p.x - 2.5, p.y + 14);
+                    wCtx.stroke();
+                } else if (state.weather === 'snow') {
+                    p.y += p.vy * 0.85;
+                    p.x += Math.sin(p.phase) * 0.65;
+                    if (p.y > vh + 10) { p.y = -10; p.x = Math.random() * vw; }
+                    wCtx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+                    wCtx.beginPath();
+                    wCtx.arc(p.x, p.y, p.r * 0.62, 0, Math.PI * 2);
+                    wCtx.fill();
+                } else if (state.weather === 'sakura' || state.weather === 'momiji') {
+                    p.y += p.vy * 0.75;
+                    p.x += Math.sin(p.phase) * 0.85 + p.vx * 0.35;
+                    p.rot += p.vRot;
+                    if (p.y > vh + 14) { p.y = -14; p.x = Math.random() * vw; }
+                    wCtx.save();
+                    wCtx.translate(p.x, p.y);
+                    wCtx.rotate(p.rot);
+                    wCtx.fillStyle = state.weather === 'sakura' ? 'rgba(255, 198, 218, 0.86)' : 'rgba(224, 68, 38, 0.86)';
+                    wCtx.beginPath();
+                    wCtx.ellipse(0, 0, p.r * 0.85, p.r * 0.45, 0, 0, Math.PI * 2);
+                    wCtx.fill();
+                    wCtx.restore();
+                } else if (state.weather === 'firefly') {
+                    p.x += Math.cos(p.phase * 0.7) * 0.5;
+                    p.y += Math.sin(p.phase * 0.8) * 0.42;
+                    const alpha = 0.3 + 0.7 * Math.abs(Math.sin(tSec * 2 + p.phase));
+                    wCtx.fillStyle = `rgba(222, 255, 112, ${alpha})`;
+                    wCtx.beginPath();
+                    wCtx.arc(p.x, p.y, p.r * 0.7, 0, Math.PI * 2);
+                    wCtx.fill();
+                }
+            });
+        }
+
+        /* =====================================================================
+           5. UI同期・ホットスポット・タッチ操作・モーダル制御
+           ===================================================================== */
+        const hotspotLayer = document.getElementById('hotspot-layer');
+
+        function renderPins() {
+            hotspotLayer.innerHTML = '';
+            const sp = SPOTS[state.spotId];
+            const ang = sp.angles[state.angleIndex] || sp.angles[0];
+            ang.pins.forEach((pin) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'hotspot-pin';
+                btn.dataset.px = pin.x;
+                btn.dataset.py = pin.y;
+                btn.innerHTML = `
+                    <span class="hotspot-ring-wrap">
+                        <span class="hotspot-pulse"></span>
+                        <span class="hotspot-dot"></span>
+                    </span>
+                    <span class="hotspot-pill">${pin.title}</span>
+                `;
+                btn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    openPinModal(pin);
+                });
+                hotspotLayer.appendChild(btn);
+            });
+            syncPins();
+        }
+
+        function syncPins() {
+            const tx = -state.yaw * 4.5;
+            const ty = -state.pitch * 3.8;
+            const cx = vw * 0.5;
+            const cy = vh * 0.5;
+            const span = Math.min(vw, vh) * 0.38;
+            hotspotLayer.querySelectorAll('.hotspot-pin').forEach((el) => {
+                const px = parseFloat(el.dataset.px) || 0;
+                const py = parseFloat(el.dataset.py) || 0;
+                el.style.left = `${cx + (px * span + tx) * state.zoom}px`;
+                el.style.top = `${cy + (py * span + ty) * state.zoom}px`;
+            });
+        }
+
+        function renderAngleTabs() {
+            const bar = document.getElementById('angle-bar');
+            bar.innerHTML = '';
+            const sp = SPOTS[state.spotId];
+            sp.angles.forEach((ang, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `angle-tab ${idx === state.angleIndex ? 'active' : ''}`;
+                const locked = ang.premium && !state.isPremium;
+                btn.innerHTML = `${ang.label}${locked ? ' 🔒' : ''}`;
+                btn.addEventListener('click', () => selectAngle(idx));
+                bar.appendChild(btn);
+            });
+        }
+
+        function syncHUD() {
+            const sp = SPOTS[state.spotId];
+            const ang = sp.angles[state.angleIndex] || sp.angles[0];
+
+            document.getElementById('hud-area').textContent = sp.area;
+            document.getElementById('hud-angle').textContent = ang.label;
+            document.getElementById('hud-title').textContent = sp.title;
+            document.getElementById('hud-sub').textContent = sp.sub;
+            document.getElementById('fushimi-compact-frame').classList.toggle('active', Boolean(sp.isFushimiCompact));
+
+            document.querySelectorAll('.spot-card').forEach((c) => {
+                c.classList.toggle('active', c.dataset.spot === state.spotId);
+            });
+            document.querySelectorAll('.time-btn').forEach((b) => {
+                b.classList.toggle('active-time', b.dataset.time === state.time);
+            });
+            document.querySelectorAll('.weather-btn').forEach((b) => {
+                b.classList.toggle('active-weather', b.dataset.weather === state.weather);
+            });
+
+            const planBtn = document.getElementById('plan-btn');
+            const planDot = document.getElementById('plan-dot');
+            const planLabel = document.getElementById('plan-label');
+            const sponsorBar = document.getElementById('sponsor-bar');
+            const mixerLock = document.getElementById('mixer-lock');
+
+            if (state.isPremium) {
+                planBtn.classList.add('is-premium');
+                planDot.classList.add('gold');
+                planLabel.textContent = '500円会員';
+                sponsorBar.classList.add('hidden');
+                mixerLock.classList.add('hidden');
+            } else {
+                planBtn.classList.remove('is-premium');
+                planDot.classList.remove('gold');
+                planLabel.textContent = '無料 / 500円';
+                sponsorBar.classList.remove('hidden');
+                mixerLock.classList.remove('hidden');
+            }
+
+            document.querySelectorAll('.lock-icon').forEach((el) => {
+                el.style.display = state.isPremium ? 'none' : 'inline';
+            });
+
+            applyPhotoAtmosphere();
+        }
+
+        function applyPlan(isPremium, toastText = '') {
+            state.isPremium = Boolean(isPremium);
+            try { localStorage.setItem('kyoto_ibuki_photo_premium', state.isPremium ? '1' : '0'); } catch (e) {}
+            if (!state.isPremium) {
+                const sp = SPOTS[state.spotId];
+                if (sp.angles[state.angleIndex] && sp.angles[state.angleIndex].premium) {
+                    state.angleIndex = 0;
+                    loadCurrentPhoto();
+                    renderPins();
+                }
+                if (!TIME_META[state.time].free) state.time = 'day';
+                if (!WEATHER_META[state.weather].free) {
+                    state.weather = 'sakura';
+                    initParticles();
+                }
+                document.getElementById('mixer-panel').classList.add('hidden');
+            }
+            renderAngleTabs();
+            syncHUD();
+            soundEngine.applyMix();
+            if (toastText) showToast(toastText);
+        }
+
+        function selectSpot(id) {
+            if (!SPOTS[id]) return;
+            state.spotId = id;
+            state.angleIndex = 0;
+            state.yaw = 0;
+            state.pitch = 0;
+            state.velYaw = 0;
+            state.velPitch = 0;
+            state.zoom = SPOTS[id].initZoom || 1.0;
+
+            loadCurrentPhoto();
+            renderAngleTabs();
+            renderPins();
+            syncHUD();
+            soundEngine.applyMix();
+            syncContextualPR();
+            stampGoshuin(id, false);
+            showToast(`${SPOTS[id].title}へ移動`);
+        }
+
+        function selectAngle(idx) {
+            const sp = SPOTS[state.spotId];
+            const ang = sp.angles[idx];
+            if (!ang) return;
+            if (ang.premium && !state.isPremium) {
+                openPlanModal(`「${ang.label}」は月額500円プランで解放されます`);
+                return;
+            }
+            state.angleIndex = idx;
+            state.yaw = 0;
+            state.pitch = 0;
+            loadCurrentPhoto();
+            renderAngleTabs();
+            renderPins();
+            syncHUD();
+            showToast(`${ang.label}`);
+        }
+
+        function selectTime(key) {
+            const meta = TIME_META[key];
+            if (!meta) return;
+            if (!meta.free && !state.isPremium) {
+                openPlanModal(`刻限「${meta.label}」は月額500円プランで解放されます`);
+                return;
+            }
+            state.time = key;
+            drawFallbackPhoto();
+            syncHUD();
+            showToast(`刻限：${meta.label}`);
+        }
+
+        function selectWeather(key) {
+            const meta = WEATHER_META[key];
+            if (!meta) return;
+            if (!meta.free && !state.isPremium) {
+                openPlanModal(`風情「${meta.label}」は月額500円プランで解放されます`);
+                return;
+            }
+            state.weather = key;
+            initParticles();
+            drawFallbackPhoto();
+            syncHUD();
+            soundEngine.applyMix();
+            syncContextualPR();
+            showToast(`風情：${meta.label}`);
+        }
+
+        function clampView() {
+            const sp = SPOTS[state.spotId];
+            const my = sp.maxYaw || 36;
+            const mp = sp.maxPitch || 16;
+            state.yaw = Math.max(-my, Math.min(my, state.yaw));
+            state.pitch = Math.max(-mp, Math.min(mp, state.pitch));
+            const minZ = sp.isFushimiCompact ? 1.05 : 0.88;
+            const maxZ = sp.isFushimiCompact ? 1.52 : 1.72;
+            state.zoom = Math.max(minZ, Math.min(maxZ, state.zoom));
+        }
+
+        // タッチスワイプ・ピンチ＆マウスドラッグ
+        const stage = document.getElementById('viewport-stage');
+        let dragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        let pinchDist = 0;
+        let pinchZoom = 1;
+
+        function touchDistance(a, b) {
+            return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        }
+
+        stage.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.hotspot-pin')) return;
+            if (e.touches.length === 2) {
+                dragging = false;
+                pinchDist = touchDistance(e.touches[0], e.touches[1]);
+                pinchZoom = state.zoom;
+            } else if (e.touches.length === 1) {
+                dragging = true;
+                state.velYaw = 0;
+                state.velPitch = 0;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        stage.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && pinchDist > 0) {
+                const d = touchDistance(e.touches[0], e.touches[1]);
+                state.zoom = pinchZoom * (d / pinchDist);
+                clampView();
+                return;
+            }
+            if (!dragging || e.touches.length !== 1) return;
+            const x = e.touches[0].clientX;
+            const y = e.touches[0].clientY;
+            const dx = x - lastX;
+            const dy = y - lastY;
+            lastX = x;
+            lastY = y;
+            state.velYaw = -dx * 0.14;
+            state.velPitch = -dy * 0.11;
+            state.yaw += state.velYaw;
+            state.pitch += state.velPitch;
+            clampView();
+        }, { passive: true });
+
+        stage.addEventListener('touchend', () => {
+            dragging = false;
+            pinchDist = 0;
+        }, { passive: true });
+
+        stage.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.hotspot-pin')) return;
+            dragging = true;
+            state.velYaw = 0;
+            state.velPitch = 0;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            state.velYaw = -dx * 0.14;
+            state.velPitch = -dy * 0.11;
+            state.yaw += state.velYaw;
+            state.pitch += state.velPitch;
+            clampView();
+        });
+
+        window.addEventListener('mouseup', () => {
+            dragging = false;
+        });
+
+        function syncContextualPR() {
+            const sp = SPOTS[state.spotId];
+            const titleEl = document.getElementById('pr-title');
+            const descEl = document.getElementById('pr-desc');
+            const l1 = document.getElementById('pr-link-1');
+            const l2 = document.getElementById('pr-link-2');
+
+            if (state.weather === 'rain' || state.weather === 'snow') {
+                titleEl.textContent = '静かな余韻・おうち時間案内';
+                descEl.textContent = '雨や雪の京都を眺めながら、宇治抹茶や京菓子でゆったりとした時間を過ごしませんか。';
+                l1.textContent = '抹茶・京菓子を見る →';
+                l1.href = cfg.teaUrl;
+                l2.textContent = '周辺の宿を見る →';
+                l2.href = cfg.hotelUrl;
+            } else {
+                titleEl.textContent = `旅の案内・${sp.title}周辺`;
+                descEl.textContent = sp.prCopy;
+                l1.textContent = '周辺の宿を見る →';
+                l1.href = cfg.hotelUrl;
+                l2.textContent = '体験・お取り寄せ →';
+                l2.href = cfg.expUrl;
+            }
+        }
+
+        function openPinModal(pin) {
+            state.activePin = pin;
+            document.getElementById('pin-cat').textContent = pin.cat;
+            document.getElementById('pin-title').textContent = pin.title;
+            document.getElementById('pin-body').textContent = pin.body;
+            document.getElementById('pin-quote').textContent = pin.quote;
+
+            const badge = document.getElementById('pin-story-badge');
+            const story = document.getElementById('pin-long-story');
+            const voiceLbl = document.getElementById('pin-voice-label');
+            if (state.isPremium) {
+                badge.textContent = '✦ 500円会員解放中';
+                story.textContent = pin.longStory;
+                voiceLbl.textContent = '長編音声ガイド';
+            } else {
+                badge.textContent = '🔒 500円会員';
+                story.textContent = '月額500円プランでは、歴史や風情を深掘りする長編ストーリーと長編音声ガイドをお聴きいただけます。';
+                voiceLbl.textContent = '音声ガイド';
+            }
+            syncContextualPR();
+            document.getElementById('pin-modal').classList.remove('hidden');
+        }
+
+        function toggleVoiceGuide() {
+            if (!('speechSynthesis' in window) || !state.activePin) {
+                showToast('この端末の音声読み上げに未対応です');
+                return;
+            }
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                showToast('音声ガイドを停止しました');
+                return;
+            }
+            const p = state.activePin;
+            const txt = state.isPremium ? `${p.title}。${p.body} ${p.longStory}` : `${p.title}。${p.body}`;
+            const utt = new SpeechSynthesisUtterance(txt);
+            utt.lang = 'ja-JP';
+            utt.rate = 0.95;
+            window.speechSynthesis.speak(utt);
+            showToast('音声ガイドを再生中');
+        }
+
+        function openPlanModal(msg = '') {
+            syncLinks();
+            document.getElementById('passcode-msg').textContent = '';
+            document.getElementById('plan-modal').classList.remove('hidden');
+            if (msg) showToast(msg);
+        }
+
+        function renderGoshuinModal() {
+            const container = document.getElementById('goshuin-list');
+            container.innerHTML = '';
+            Object.values(SPOTS).forEach((sp) => {
+                const rec = state.goshuin[sp.id];
+                const card = document.createElement('div');
+                card.className = 'goshuin-item';
+                if (rec) {
+                    card.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                            <div>
+                                <div style="font-size:10px;color:#756b59;">${rec.date}</div>
+                                <div class="font-serif" style="font-size:14px;font-weight:700;margin-top:2px;">${sp.goshuinTitle}</div>
+                                <div style="font-size:10.5px;color:#52493a;">${sp.goshuinSub}</div>
+                            </div>
+                            <div class="stamp-seal ${rec.gold ? 'gold' : ''}">${rec.gold ? '特別<br>金印' : '参拝<br>之印'}</div>
+                        </div>
+                        <div style="margin-top:7px;padding-top:5px;border-top:1px dashed rgba(0,0,0,0.14);font-size:10px;color:var(--accent-shuiro);">
+                            ${rec.time} · ${rec.weather}
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span class="font-serif" style="font-size:13px;font-weight:700;color:#3c372d;">${sp.title}</span>
+                            <span style="font-size:9.5px;color:#7a7161;">未参拝</span>
+                        </div>
+                        <button type="button" class="go-spot-btn" data-spot="${sp.id}" style="margin-top:6px;min-height:36px;font-size:11px;color:var(--accent-shuiro);font-weight:700;text-decoration:underline;">→ この名所へ行く</button>
+                    `;
+                }
+                container.appendChild(card);
+            });
+            container.querySelectorAll('.go-spot-btn').forEach((b) => {
+                b.addEventListener('click', () => {
+                    document.getElementById('goshuin-modal').classList.add('hidden');
+                    selectSpot(b.dataset.spot);
+                });
+            });
+        }
+
+        function openOwnerModal() {
+            document.getElementById('cfg-stripe').value = cfg.stripeUrl || '';
+            document.getElementById('cfg-codes').value = (cfg.codes || []).join(', ');
+            document.getElementById('cfg-hotel').value = cfg.hotelUrl || '';
+            document.getElementById('cfg-exp').value = cfg.expUrl || '';
+            document.getElementById('cfg-operator').value = cfg.operator || '';
+            document.getElementById('owner-modal').classList.remove('hidden');
+        }
+
+        function openLegalModal(kind) {
+            const titleEl = document.getElementById('legal-title');
+            const bodyEl = document.getElementById('legal-body');
+            if (kind === 'tokushoho') {
+                titleEl.textContent = '特定商取引法に基づく表記';
+                bodyEl.innerHTML = `
+                    <p><strong>販売サービス：</strong>京の息吹 月額500円プラン（税込）</p>
+                    <p><strong>運営事業者・連絡先：</strong>${cfg.operator}</p>
+                    <p><strong>決済方法・時期：</strong>Stripe決済リンクによる月額自動更新決済。</p>
+                    <p><strong>提供時期：</strong>決済完了後に案内されるパスコード認証後すぐにご利用いただけます。</p>
+                `;
+            } else if (kind === 'privacy') {
+                titleEl.textContent = 'プライバシーポリシー';
+                bodyEl.innerHTML = `
+                    <p>御朱印記録・プラン状態・オーナー設定は端末の localStorage に保存されます。</p>
+                    <p>決済情報は Stripe 側で処理され、本画面には保持しません。</p>
+                `;
+            } else {
+                titleEl.textContent = '広告およびPR（アフィリエイト）表記';
+                bodyEl.innerHTML = `
+                    <p>「PR」表記および案内リンクには、宿泊・体験・お取り寄せ等のアフィリエイトリンクが含まれる場合があります。</p>
+                `;
+            }
+            document.getElementById('legal-modal').classList.remove('hidden');
+        }
+
+        function bindEvents() {
+            document.querySelectorAll('.spot-card').forEach((c) => {
+                c.addEventListener('click', () => selectSpot(c.dataset.spot));
+            });
+            document.querySelectorAll('.time-btn').forEach((b) => {
+                b.addEventListener('click', () => selectTime(b.dataset.time));
+            });
+            document.querySelectorAll('.weather-btn').forEach((b) => {
+                b.addEventListener('click', () => selectWeather(b.dataset.weather));
+            });
+
+            document.getElementById('zoom-in-btn').addEventListener('click', () => {
+                state.zoom += 0.14;
+                clampView();
+            });
+            document.getElementById('zoom-out-btn').addEventListener('click', () => {
+                state.zoom -= 0.14;
+                clampView();
+            });
+            document.getElementById('reset-view-btn').addEventListener('click', () => {
+                state.yaw = 0;
+                state.pitch = 0;
+                state.velYaw = 0;
+                state.velPitch = 0;
+                state.zoom = SPOTS[state.spotId].initZoom || 1.0;
+                showToast('正面に戻しました');
+            });
+
+            document.getElementById('bell-btn').addEventListener('click', () => {
+                soundEngine.ringBell();
+                showToast('鐘の余韻が響きました');
+            });
+
+            document.getElementById('audio-btn').addEventListener('click', () => {
+                const on = soundEngine.toggle();
+                document.getElementById('audio-icon').textContent = on ? '🔊' : '🔇';
+                document.getElementById('audio-label').textContent = on ? '音ON' : '音OFF';
+                document.getElementById('audio-btn').classList.toggle('active-state', on);
+                showToast(on ? '環境音を再生中' : '環境音を停止');
+            });
+
+            document.getElementById('mixer-btn').addEventListener('click', () => {
+                if (!state.isPremium) {
+                    openPlanModal('「環境音ミキサー＆タイマー」は月額500円プランで解放されます');
+                    return;
+                }
+                if (!soundEngine.playing) {
+                    soundEngine.toggle(true);
+                    document.getElementById('audio-icon').textContent = '🔊';
+                    document.getElementById('audio-label').textContent = '音ON';
+                }
+                document.getElementById('mixer-panel').classList.toggle('hidden');
+            });
+
+            document.getElementById('mixer-close-btn').addEventListener('click', () => {
+                document.getElementById('mixer-panel').classList.add('hidden');
+            });
+
+            ['master', 'wind', 'stream', 'rain'].forEach((k) => {
+                const sl = document.getElementById(`sl-${k}`);
+                sl.addEventListener('input', () => {
+                    document.getElementById(`lbl-${k}`).textContent = `${sl.value}%`;
+                    soundEngine.setVol(k, sl.value);
+                });
+            });
+
+            document.querySelectorAll('.sleep-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const mins = Number(btn.dataset.min);
+                    if (!mins) {
+                        state.sleepEndAt = null;
+                        document.getElementById('sleep-status').textContent = '未設定';
+                        showToast('タイマー解除');
+                    } else {
+                        state.sleepEndAt = Date.now() + mins * 60000;
+                        document.getElementById('sleep-status').textContent = `残り${mins}分`;
+                        showToast(`${mins}分後に停止します`);
+                    }
+                });
+            });
+
+            document.getElementById('hide-hud-btn').addEventListener('click', () => {
+                document.getElementById('hud-shell').classList.add('hidden');
+                document.getElementById('mixer-panel').classList.add('hidden');
+                document.getElementById('restore-hud-btn').classList.remove('hidden');
+            });
+            document.getElementById('restore-hud-btn').addEventListener('click', () => {
+                document.getElementById('hud-shell').classList.remove('hidden');
+                document.getElementById('restore-hud-btn').classList.add('hidden');
+            });
+
+            document.getElementById('pin-close-btn').addEventListener('click', () => {
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                document.getElementById('pin-modal').classList.add('hidden');
+            });
+            document.getElementById('pin-voice-btn').addEventListener('click', toggleVoiceGuide);
+            document.getElementById('pin-stamp-btn').addEventListener('click', () => {
+                stampGoshuin(state.spotId, true);
+                document.getElementById('pin-modal').classList.add('hidden');
+            });
+
+            document.getElementById('plan-btn').addEventListener('click', () => openPlanModal());
+            document.getElementById('sponsor-hide-btn').addEventListener('click', () => openPlanModal());
+            document.getElementById('plan-close-btn').addEventListener('click', () => {
+                document.getElementById('plan-modal').classList.add('hidden');
+            });
+
+            document.getElementById('stripe-link').addEventListener('click', (e) => {
+                if (!cfg.stripeUrl) {
+                    e.preventDefault();
+                    showToast('オーナー設定でStripe URLを設定してください（テスト認証: KYOTO500）');
+                }
+            });
+
+            document.getElementById('toggle-plan-preview').addEventListener('click', () => {
+                const next = !state.isPremium;
+                applyPlan(next, next ? '月額500円プラン表示に切替' : '無料版表示に切替');
+            });
+
+            document.getElementById('passcode-btn').addEventListener('click', () => {
+                const code = document.getElementById('passcode-input').value.trim().toUpperCase();
+                const msg = document.getElementById('passcode-msg');
+                if (cfg.codes.map((c) => c.toUpperCase()).includes(code)) {
+                    msg.style.color = '#8be2a6';
+                    msg.textContent = '認証完了。月額500円プラン特典が有効になりました。';
+                    applyPlan(true, '500円会員特典を解放しました');
+                    setTimeout(() => document.getElementById('plan-modal').classList.add('hidden'), 600);
+                } else {
+                    msg.style.color = '#ff8b7d';
+                    msg.textContent = 'パスコードが一致しません（KYOTO500 でお試しいただけます）。';
+                }
+            });
+
+            document.getElementById('goshuin-btn').addEventListener('click', () => {
+                renderGoshuinModal();
+                document.getElementById('goshuin-modal').classList.remove('hidden');
+            });
+            document.getElementById('goshuin-close-btn').addEventListener('click', () => {
+                document.getElementById('goshuin-modal').classList.add('hidden');
+            });
+            document.getElementById('goshuin-reset-btn').addEventListener('click', () => {
+                state.goshuin = {};
+                try { localStorage.removeItem('kyoto_ibuki_photo_goshuin_v1'); } catch (e) {}
+                updateGoshuinCount();
+                renderGoshuinModal();
+                showToast('御朱印記録をリセットしました');
+            });
+
+            document.getElementById('owner-btn').addEventListener('click', openOwnerModal);
+            document.getElementById('owner-close-btn').addEventListener('click', () => {
+                document.getElementById('owner-modal').classList.add('hidden');
+            });
+            document.getElementById('cfg-save-btn').addEventListener('click', () => {
+                cfg.stripeUrl = document.getElementById('cfg-stripe').value.trim();
+                const list = document.getElementById('cfg-codes').value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+                cfg.codes = list.length ? list : DEFAULT_CFG.codes.slice();
+                cfg.hotelUrl = document.getElementById('cfg-hotel').value.trim() || DEFAULT_CFG.hotelUrl;
+                cfg.expUrl = document.getElementById('cfg-exp').value.trim() || DEFAULT_CFG.expUrl;
+                cfg.operator = document.getElementById('cfg-operator').value.trim() || DEFAULT_CFG.operator;
+                try { localStorage.setItem('kyoto_ibuki_photo_cfg_v1', JSON.stringify(cfg)); } catch (e) {}
+                syncLinks();
+                document.getElementById('owner-modal').classList.add('hidden');
+                showToast('オーナー設定を保存しました');
+            });
+            document.getElementById('cfg-reset-btn').addEventListener('click', () => {
+                cfg = Object.assign({}, DEFAULT_CFG);
+                try { localStorage.removeItem('kyoto_ibuki_photo_cfg_v1'); } catch (e) {}
+                syncLinks();
+                openOwnerModal();
+                showToast('初期値に戻しました');
+            });
+
+            document.querySelectorAll('[data-legal]').forEach((b) => {
+                b.addEventListener('click', () => openLegalModal(b.dataset.legal));
+            });
+            document.getElementById('legal-close-btn').addEventListener('click', () => {
+                document.getElementById('legal-modal').classList.add('hidden');
+            });
+
+            window.addEventListener('resize', () => {
+                resizeCanvases();
+                initParticles();
+                syncPins();
+            });
+        }
+
+        function animate(nowMs) {
+            const tSec = (nowMs || 0) * 0.001;
+
+            if (state.sleepEndAt) {
+                const rem = state.sleepEndAt - Date.now();
+                if (rem <= 0) {
+                    state.sleepEndAt = null;
+                    document.getElementById('sleep-status').textContent = '終了';
+                    if (soundEngine.playing) {
+                        soundEngine.toggle(false);
+                        document.getElementById('audio-icon').textContent = '🔇';
+                        document.getElementById('audio-label').textContent = '音OFF';
+                        document.getElementById('audio-btn').classList.remove('active-state');
+                    }
+                } else {
+                    document.getElementById('sleep-status').textContent = `残り${Math.ceil(rem / 60000)}分`;
+                }
+            }
+
+            if (!dragging) {
+                state.yaw += state.velYaw;
+                state.pitch += state.velPitch;
+                state.velYaw *= 0.9;
+                state.velPitch *= 0.9;
+                clampView();
+            }
+
+            const tx = -state.yaw * 4.5;
+            const ty = -state.pitch * 3.8;
+            photoLayerEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${state.zoom})`;
+            if (!photoLoadedOk) {
+                drawFallbackPhoto();
+            }
+
+            document.getElementById('lens-readout').textContent = `視線 ${Math.round(state.yaw)}° · ${state.zoom.toFixed(1)}x`;
+            drawParticles(tSec);
+            syncPins();
+            requestAnimationFrame(animate);
+        }
+
+        (function initApp() {
+            loadConfig();
+            loadGoshuin();
+            try {
+                if (localStorage.getItem('kyoto_ibuki_photo_premium') === '1') {
+                    state.isPremium = true;
+                }
+            } catch (e) {}
+            resizeCanvases();
+            initParticles();
+            loadCurrentPhoto();
+            renderAngleTabs();
+            renderPins();
+            syncHUD();
+            bindEvents();
+            stampGoshuin(state.spotId, false);
+            requestAnimationFrame(animate);
+        })();
+    </script>
+</body>
+</html>
